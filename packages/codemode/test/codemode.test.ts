@@ -239,6 +239,7 @@ describe("CodeMode call hooks", () => {
   })
 
   test("a failing before hook denies the call; the program catches the host's error", async () => {
+    const fetched: Array<string> = []
     const runtime = CodeMode.make({
       tools: {
         lookup: Tool.make({
@@ -248,7 +249,17 @@ describe("CodeMode call hooks", () => {
           execute: () => Effect.succeed("ok"),
         }),
       },
-      extensions: [Extension.make({ name: "web", globals: { fetch: async (url: string) => url } })],
+      extensions: [
+        Extension.make({
+          name: "web",
+          globals: {
+            fetch: async (url: string) => {
+              fetched.push(url)
+              return url
+            },
+          },
+        }),
+      ],
       hooks: { "extension.before": (call) => Effect.fail(new Error(`${call.name} is not allowed`)) },
     })
     expect(
@@ -263,6 +274,7 @@ describe("CodeMode call hooks", () => {
       ok: false,
       error: { kind: "ExecutionFailure", message: "Error: fetch is not allowed" },
     })
+    expect(fetched).toEqual([])
     const refused = CodeMode.make({
       tools: {
         lookup: Tool.make({

@@ -12,8 +12,7 @@ type Init = {
 }
 
 const fetch = async (input: string | URL, init: Init = {}) => {
-  if (URL.parse(String(input))?.protocol === "file:")
-    throw new Error("fetch cannot be used for filesystem access.")
+  if (URL.parse(String(input))?.protocol === "file:") throw new Error("fetch cannot be used for filesystem access.")
   const response = await globalThis.fetch(input, {
     method: init.method,
     headers: init.headers,
@@ -42,8 +41,10 @@ const fetch = async (input: string | URL, init: Init = {}) => {
 
 export const extension = Extension.make({ name: "web", globals: { fetch } })
 
-/** What to show for a fetch call: its method and URL. */
-export const display = (args: ReadonlyArray<unknown>) => {
+export type Request = { readonly method: string; readonly url: string }
+
+/** What to show and authorize for a fetch call: its method and URL. */
+export const display = (args: ReadonlyArray<unknown>): Request => {
   const [input, init] = args
   const method = isRecord(init) && typeof init.method === "string" ? init.method.toUpperCase() : "GET"
   return { method, url: String(input) }

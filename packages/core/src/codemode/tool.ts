@@ -80,6 +80,7 @@ const description = [
 export const create = (
   inventory: Inventory,
   executeTool: (name: string, tool: Info, input: unknown, context: ToolContext) => Effect.Effect<Result, Error>,
+  authorizeFetch: (request: CodeModeWeb.Request, context: ToolContext) => Effect.Effect<void, unknown>,
 ) => {
   return {
     name: "execute",
@@ -115,7 +116,7 @@ export const create = (
                   const text = content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n")
                   return text === "" ? null : text
                 }),
-              hooks: progressHooks(record),
+              hooks: progressHooks(record, (request) => authorizeFetch(request, context)),
             }),
           )
         const toolCalls = yield* Ref.get(calls)
@@ -152,7 +153,10 @@ export const create = (
 }
 
 // Rows appear in start order; the same call object arrives at both hooks, so a call finds its row again.
-function progressHooks(record: (update: (items: Array<ExecuteCall>) => Array<ExecuteCall>) => Effect.Effect<unknown>) {
+function progressHooks(
+  record: (update: (items: Array<ExecuteCall>) => Array<ExecuteCall>) => Effect.Effect<unknown>,
+  authorizeFetch: (request: CodeModeWeb.Request) => Effect.Effect<void, unknown>,
+) {
   const rows = new WeakMap<object, number>()
   const start = (call: object, entry: ExecuteCall) =>
     record((items) => {
@@ -177,8 +181,12 @@ function progressHooks(record: (update: (items: Array<ExecuteCall>) => Array<Exe
     // Only listed extension functions get a row; anything else stays out of the TUI.
     "extension.before": (call) => {
       switch (call.name) {
-        case "fetch":
-          return start(call, { tool: call.name, status: "running", input: CodeModeWeb.display(call.args) })
+        case "fetch": {
+          const request = CodeModeWeb.display(call.args)
+          return authorizeFetch(request).pipe(
+            Effect.andThen(start(call, { tool: call.name, status: "running", input: request })),
+          )
+        }
         default:
           return Effect.void
       }

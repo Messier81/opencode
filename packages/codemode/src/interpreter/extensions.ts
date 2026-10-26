@@ -135,27 +135,40 @@ export const extensionGlobals = <R>(
 
   // A host function as a program function. Arguments cross in; a global's call runs inside the host's extension
   // hooks, which see the host's own error on failure; then whatever came back, or was thrown, crosses out so the
-  // program catches a copy. Functions inside results are part of a value's API and skip the hooks.
+  // program catches a copy. The host function starts only once the before hook succeeds, so the hook can deny it.
+  // An `async` global's call is a host promise from the start, so a denial rejects it like any other failure.
+  // Functions inside results are part of a value's API and skip the hooks.
   const wrap = (value: Function, label: string, describe?: (args: ReadonlyArray<unknown>) => ExtensionInvocation) =>
     fn<R>(builtins, value.name, value.length, (_, values) => {
       const args = values.map((item, index) => toHost(item, `Argument ${index + 1} to ${label}`))
       const hooks = ctx.tools.hooks
-      const settle = (run: Effect.Effect<unknown, unknown, R>) =>
-        (describe === undefined
-          ? run
-          : hooked(describe(args), hooks["extension.before"], hooks["extension.after"], run)
-        ).pipe(
+      const call = describe?.(args)
+      const cross = (run: Effect.Effect<unknown, unknown, R>) =>
+        run.pipe(
           Effect.mapError((reason) => new Throw(fromHost(reason, label))),
           Effect.map((settled) => fromHost(settled, label)),
         )
-      let result: unknown
-      try {
-        result = value.apply(undefined, args)
-      } catch (reason) {
-        return settle(Effect.fail(reason))
+      const before = call === undefined ? Effect.void : (hooks["extension.before"]?.(call) ?? Effect.void)
+      const after = (run: Effect.Effect<unknown, unknown, R>) =>
+        call === undefined ? run : hooked(call, undefined, hooks["extension.after"], run)
+      if (value instanceof AsyncFunction) {
+        const run = Effect.tryPromise({ try: () => value.apply(undefined, args), catch: (reason) => reason })
+        return ctx.pending.createHost(cross(Effect.andThen(before, after(run))))
       }
-      if (!(result instanceof Promise)) return settle(Effect.succeed(result))
-      return ctx.pending.createHost(settle(Effect.tryPromise({ try: () => result, catch: (reason) => reason })))
+      return cross(before).pipe(
+        Effect.flatMap(() => {
+          let result: unknown
+          try {
+            result = value.apply(undefined, args)
+          } catch (reason) {
+            return cross(after(Effect.fail(reason)))
+          }
+          if (!(result instanceof Promise)) return cross(after(Effect.succeed(result)))
+          return ctx.pending.createHost(
+            cross(after(Effect.tryPromise({ try: () => result, catch: (reason) => reason }))),
+          )
+        }),
+      )
     })
 
   return extensions.flatMap((extension) =>
@@ -180,6 +193,8 @@ const crossing = <T>(convert: () => T): T | typeof left => {
     throw reason
   }
 }
+
+const AsyncFunction = (async () => {}).constructor
 
 const hostErrors = new Map<string, ErrorConstructor>([
   ["TypeError", TypeError],

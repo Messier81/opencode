@@ -16,8 +16,10 @@ const context = {
   progress: () => Effect.void,
 }
 
-const createCodeMode = (tools: ReadonlyMap<string, Info>) =>
-  CodeModeTool.create({ tools }, (_, tool, input, context) => execute(tool, input, context))
+const createCodeMode = (
+  tools: ReadonlyMap<string, Info>,
+  authorizeFetch: Parameters<typeof CodeModeTool.create>[2] = () => Effect.void,
+) => CodeModeTool.create({ tools }, (_, tool, input, context) => execute(tool, input, context), authorizeFetch)
 
 test("execute describes invariant Code Mode behavior", () => {
   expect(createCodeMode(new Map()).description).toBe(
@@ -39,6 +41,22 @@ test("execute rejects filesystem fetches", async () => {
 
   expect(result.output.error).toBe(true)
   expect(result.output.output).toContain("fetch cannot be used for filesystem access.")
+})
+
+test("execute authorizes fetches before sending them", async () => {
+  const requests: Array<unknown> = []
+  const result = await Effect.runPromise(
+    createCodeMode(new Map(), (request, context) =>
+      Effect.sync(() => requests.push({ request, id: context.id })).pipe(
+        Effect.andThen(Effect.fail(new Error("Permission denied: webfetch"))),
+      ),
+    ).execute({ code: 'return await fetch("https://example.invalid/data", { method: "post" })' }, context),
+  )
+
+  expect(requests).toEqual([{ request: { method: "POST", url: "https://example.invalid/data" }, id: context.id }])
+  expect(result.output.error).toBe(true)
+  expect(result.output.output).toContain("Permission denied: webfetch")
+  expect(result.output.toolCalls).toEqual([])
 })
 
 test("canonical execution distinguishes declared, model-only, and raw schema outputs", async () => {
@@ -177,10 +195,18 @@ test("executions share the prepared runtime of an inventory while keeping per-ca
     execute: (input, context) => Effect.succeed({ content: `${context.id}:${(input as { value: string }).value}` }),
   }
   const inventory = { tools: new Map([["echo", echo]]) }
-  const codeMode = CodeModeTool.create(inventory, (_, tool, input, context) => execute(tool, input, context))
+  const codeMode = CodeModeTool.create(
+    inventory,
+    (_, tool, input, context) => execute(tool, input, context),
+    () => Effect.void,
+  )
   const run = (id: string) => {
     const progress: Array<Tool.Metadata> = []
-    return CodeModeTool.create(inventory, (_, tool, input, context) => execute(tool, input, context))
+    return CodeModeTool.create(
+      inventory,
+      (_, tool, input, context) => execute(tool, input, context),
+      () => Effect.void,
+    )
       .execute(
         { code: `return await tools.echo({ value: "${id}" })` },
         { ...context, id: Tool.CallID.make(id), progress: (update) => Effect.sync(() => progress.push(update)) },
