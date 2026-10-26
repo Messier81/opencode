@@ -17065,7 +17065,16 @@
             "$ref": "#/components/schemas/Money.USD"
           },
           "tokens": {
-            "$ref": "#/components/schemas/TokenUsage.Info"
+            "type": "object",
+            "properties": {
+              "input": {
+                "type": "number"
+              },
+              "output": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
           },
           "native": {
             "$ref": "#/components/schemas/Generate.Native_1"

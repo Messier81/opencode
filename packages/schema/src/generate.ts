@@ -185,6 +185,9 @@ export interface DecisionResult extends Schema.Schema.Type<typeof DecisionResult
 export const DecisionResult = Schema.Struct({
   answers: Schema.Array(DecisionAnswer).annotate(description("One answer per question, in question order")),
   cost: Money.USD.pipe(optional),
-  tokens: TokenUsage.Info.pipe(optional),
+  tokens: Schema.Struct({
+    input: Schema.Finite.pipe(optional),
+    output: Schema.Finite.pipe(optional),
+  }).pipe(optional),
   native: Native.pipe(optional),
 }).annotate({ identifier: "Generate.DecisionResult" })

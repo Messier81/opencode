@@ -2453,7 +2453,7 @@ export type FormFields = [FormField, ...Array<FormField>]
 export type GenerateDecisionResult = {
   answers: Array<GenerateDecisionAnswer>
   cost?: MoneyUSD
-  tokens?: TokenUsageInfo
+  tokens?: { input?: number; output?: number }
   native?: GenerateNative
 }
 
