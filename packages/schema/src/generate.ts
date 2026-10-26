@@ -5,7 +5,6 @@ import { Model } from "./model.js"
 import { Money } from "./money.js"
 import { Base64 } from "./prompt.js"
 import { PositiveInt, optional } from "./schema.js"
-import { TokenUsage } from "./token-usage.js"
 
 const description = (text: string) => ({ description: text })
 
@@ -19,6 +18,12 @@ export const File = Schema.Struct({
   mime: Schema.String,
   name: Schema.String.pipe(optional),
 }).annotate({ identifier: "Generate.File" })
+
+export interface Usage extends Schema.Schema.Type<typeof Usage> {}
+export const Usage = Schema.Struct({
+  input: Schema.Finite.pipe(optional),
+  output: Schema.Finite.pipe(optional),
+}).annotate({ identifier: "Generate.Usage", description: "Token counts, when the provider reports them" })
 
 export const Native = Schema.Record(Schema.String, Schema.Unknown).annotate({
   identifier: "Generate.Native",
@@ -46,21 +51,17 @@ export const ImageRequest = Schema.Struct({
   ),
 }).annotate({ identifier: "Generate.ImageRequest" })
 
-export interface Notice extends Schema.Schema.Type<typeof Notice> {}
-export const Notice = Schema.Struct({
-  type: Schema.Literals(["moderated", "filtered", "other"]),
-  message: Schema.String,
-}).annotate({
-  identifier: "Generate.Notice",
-  description: "A partial result the provider reported, such as fewer images than requested after moderation",
-})
+export interface ImageOutput extends Schema.Schema.Type<typeof ImageOutput> {}
+export const ImageOutput = Schema.Struct({
+  type: Schema.Literal("image"),
+  ...File.fields,
+}).annotate({ identifier: "Generate.ImageOutput" })
 
 export interface ImageResult extends Schema.Schema.Type<typeof ImageResult> {}
 export const ImageResult = Schema.Struct({
-  images: Schema.Array(File),
-  notices: Schema.Array(Notice).pipe(optional),
+  images: Schema.Array(ImageOutput),
   cost: Money.USD.pipe(optional),
-  tokens: TokenUsage.Info.pipe(optional),
+  tokens: Usage.pipe(optional),
   native: Native.pipe(optional),
 }).annotate({ identifier: "Generate.ImageResult" })
 
@@ -185,9 +186,6 @@ export interface DecisionResult extends Schema.Schema.Type<typeof DecisionResult
 export const DecisionResult = Schema.Struct({
   answers: Schema.Array(DecisionAnswer).annotate(description("One answer per question, in question order")),
   cost: Money.USD.pipe(optional),
-  tokens: Schema.Struct({
-    input: Schema.Finite.pipe(optional),
-    output: Schema.Finite.pipe(optional),
-  }).pipe(optional),
+  tokens: Usage.pipe(optional),
   native: Native.pipe(optional),
 }).annotate({ identifier: "Generate.DecisionResult" })

@@ -17065,16 +17065,7 @@
             "$ref": "#/components/schemas/Money.USD"
           },
           "tokens": {
-            "type": "object",
-            "properties": {
-              "input": {
-                "type": "number"
-              },
-              "output": {
-                "type": "number"
-              }
-            },
-            "additionalProperties": false
+            "$ref": "#/components/schemas/Generate.Usage"
           },
           "native": {
             "$ref": "#/components/schemas/Generate.Native_1"
@@ -17135,6 +17126,26 @@
         "required": ["data", "mime"],
         "additionalProperties": false
       },
+      "Generate.ImageOutput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["image"]
+          },
+          "data": {
+            "$ref": "#/components/schemas/Prompt.Base64"
+          },
+          "mime": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["type", "data", "mime"],
+        "additionalProperties": false
+      },
       "Generate.ImageRequest": {
         "type": "object",
         "properties": {
@@ -17170,20 +17181,14 @@
           "images": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Generate.File"
-            }
-          },
-          "notices": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Generate.Notice"
+              "$ref": "#/components/schemas/Generate.ImageOutput"
             }
           },
           "cost": {
             "$ref": "#/components/schemas/Money.USD"
           },
           "tokens": {
-            "$ref": "#/components/schemas/TokenUsage.Info"
+            "$ref": "#/components/schemas/Generate.Usage"
           },
           "native": {
             "$ref": "#/components/schemas/Generate.Native"
@@ -17199,21 +17204,6 @@
       "Generate.Native_1": {
         "type": "object",
         "description": "Provider-specific data the shared fields do not cover"
-      },
-      "Generate.Notice": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["moderated", "filtered", "other"]
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": ["type", "message"],
-        "additionalProperties": false,
-        "description": "A partial result the provider reported, such as fewer images than requested after moderation"
       },
       "Generate.PredicateAnswer": {
         "type": "object",
@@ -17332,6 +17322,19 @@
         "required": ["type", "name", "instructions", "levels"],
         "additionalProperties": false,
         "description": "Place the input on ordered levels, lowest first"
+      },
+      "Generate.Usage": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "number"
+          },
+          "output": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Token counts, when the provider reports them"
       },
       "GenerateDecisionsResponse": {
         "type": "object",

@@ -184,7 +184,7 @@ export type MoneyUSDPerMillionTokens = number
 
 export type GenerateTextResponse = { data: { text: string } }
 
-export type GenerateNotice = { type: "moderated" | "filtered" | "other"; message: string }
+export type GenerateUsage = { input?: number; output?: number }
 
 export type GenerateNative = { [x: string]: JsonValue }
 
@@ -422,7 +422,7 @@ export type SessionStatsTools =
   | { mode: "summary"; totals: SessionStatsToolTotals }
   | { mode: "detail"; totals: SessionStatsToolTotals; usage: Array<SessionStatsToolUsage> }
 
-export type GenerateFile = { data: PromptBase64; mime: string; name?: string }
+export type GenerateImageOutput2 = { type: "image"; data: PromptBase64; mime: string; name?: string }
 
 export type PromptFileAttachment = {
   data: PromptBase64
@@ -990,10 +990,9 @@ export type UsageLimitsBudget = {
 }
 
 export type GenerateImageResult = {
-  images: Array<GenerateFile>
-  notices?: Array<GenerateNotice>
+  images: Array<GenerateImageOutput2>
   cost?: MoneyUSD
-  tokens?: TokenUsageInfo
+  tokens?: GenerateUsage
   native?: GenerateNative
 }
 
@@ -2453,7 +2452,7 @@ export type FormFields = [FormField, ...Array<FormField>]
 export type GenerateDecisionResult = {
   answers: Array<GenerateDecisionAnswer>
   cost?: MoneyUSD
-  tokens?: { input?: number; output?: number }
+  tokens?: GenerateUsage
   native?: GenerateNative
 }
 
